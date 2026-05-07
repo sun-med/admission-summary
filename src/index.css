@@ -1,0 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.accent-line {
+  background: linear-gradient(90deg, #1c1917 0%, #1c1917 30%, transparent 100%);
+}
+
+.ehr-output {
+  font-family: 'Fraunces', Georgia, serif;
+  font-optical-sizing: auto;
+  font-size: 0.94rem;
+  line-height: 1.65;
+}
