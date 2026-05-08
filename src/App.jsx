@@ -23,6 +23,17 @@ export default function AdmissionSummaryGenerator() {
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError] = useState('');
 
+  // === API Key (stored in localStorage, never sent anywhere except Anthropic) ===
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('anthropic_api_key') || '');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showKeyPanel, setShowKeyPanel] = useState(false);
+
+  const saveApiKey = (val) => {
+    setApiKey(val);
+    if (val.trim()) localStorage.setItem('anthropic_api_key', val.trim());
+    else localStorage.removeItem('anthropic_api_key');
+  };
+
   const fileInputRef = useRef(null);
   const dropRef = useRef(null);
 
@@ -569,11 +580,12 @@ Where evidence is graded, indicate strength of recommendation.
     }
     const inputText = parts.join('\n\n').trim();
     if (!inputText) { setError('Please upload PDFs or paste records first.'); return; }
+    if (!apiKey.trim()) { setError('Please set your Anthropic API Key first (click "API Key" in the header).'); return; }
     setLoading(true);
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey.trim(), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 8000,
@@ -628,11 +640,12 @@ Date format: YYYY/MM/DD. NO ICD codes. NO Markdown bold or italics.`;
 
   const transformPlan = async () => {
     if (!oeResponse.trim()) { setPlanError('Please paste the OpenEvidence response first.'); return; }
+    if (!apiKey.trim()) { setPlanError('Please set your Anthropic API Key first (click "API Key" in the header).'); return; }
     setPlanError(''); setPlanOutput(''); setPlanLoading(true);
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey.trim(), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1500,
@@ -817,7 +830,7 @@ Date format: YYYY/MM/DD. NO ICD codes. NO Markdown bold or italics.`;
       `}</style>
 
       <header className="border-b border-stone-200 bg-stone-50/90 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-6 py-5 flex items-baseline justify-between gap-4 flex-wrap">
+        <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-baseline gap-3">
               <h1 className="font-medium text-3xl tracking-tight" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>Admission Summary</h1>
@@ -825,16 +838,65 @@ Date format: YYYY/MM/DD. NO ICD codes. NO Markdown bold or italics.`;
             </div>
             <p className="text-stone-500 text-sm mt-1">ED &amp; OPD records → structured admission note · NEJM Case Record style · EHR-ready plain text</p>
           </div>
-          {output && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {output && (
+              <button
+                onClick={downloadAll}
+                className="flex items-center gap-2 px-3 py-2 text-sm border border-stone-900 text-stone-900 hover:bg-stone-900 hover:text-stone-50 transition-colors"
+              >
+                <Download size={14} /> Download all (.txt)
+              </button>
+            )}
             <button
-              onClick={downloadAll}
-              className="flex items-center gap-2 px-3 py-2 text-sm border border-stone-900 text-stone-900 hover:bg-stone-900 hover:text-stone-50 transition-colors"
-              title="Download all generated content as a single .txt file"
+              onClick={() => setShowKeyPanel(p => !p)}
+              className={`flex items-center gap-2 px-3 py-2 text-sm border transition-colors ${apiKey.trim() ? 'border-emerald-600 text-emerald-700 hover:bg-emerald-50' : 'border-amber-500 text-amber-700 hover:bg-amber-50'}`}
             >
-              <Download size={14} /> Download all (.txt)
+              <span>{apiKey.trim() ? '🔑 API Key ✓' : '🔑 Set API Key'}</span>
             </button>
-          )}
+          </div>
         </div>
+        {showKeyPanel && (
+          <div className="border-t border-stone-200 bg-stone-100">
+            <div className="max-w-6xl mx-auto px-6 py-4">
+              <p className="text-xs text-stone-500 mb-2">
+                Your Anthropic API Key — stored only in <strong>this browser's localStorage</strong>, never sent anywhere except directly to api.anthropic.com.
+                Get one at <a href="https://platform.anthropic.com/api/keys" target="_blank" rel="noreferrer" className="underline">platform.anthropic.com/api/keys</a>.
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={e => saveApiKey(e.target.value)}
+                  placeholder="sk-ant-api03-..."
+                  className="flex-1 px-3 py-2 bg-white border border-stone-300 focus:border-stone-900 outline-none text-sm font-mono"
+                />
+                <button
+                  onClick={() => setShowApiKey(p => !p)}
+                  className="px-3 py-2 text-xs border border-stone-300 hover:border-stone-900 transition-colors"
+                >
+                  {showApiKey ? 'Hide' : 'Show'}
+                </button>
+                {apiKey.trim() && (
+                  <button
+                    onClick={() => saveApiKey('')}
+                    className="px-3 py-2 text-xs border border-red-300 text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    Clear
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowKeyPanel(false)}
+                  className="px-3 py-2 text-xs border border-stone-300 hover:border-stone-900 transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+              {apiKey.trim() && (
+                <p className="text-xs text-emerald-700 mt-1.5">✓ Key saved — will be remembered on this browser until you clear it.</p>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-8 space-y-10">
